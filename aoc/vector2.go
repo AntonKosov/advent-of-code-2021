@@ -39,3 +39,17 @@ func (v Vector2) Add(s Vector2) Vector2 {
 func (v Vector2) Mul(scalar int) Vector2 {
 	return Vector2{X: v.X * scalar, Y: v.Y * scalar}
 }
+
+func (v Vector2) Sub(s Vector2) Vector2 {
+	return Vector2{X: v.X - s.X, Y: v.Y - s.Y}
+}
+
+func (v Vector2) Norm() Vector2 {
+	if v.X != 0 {
+		v = NewVector2(v.X/Abs(v.X), v.Y)
+	}
+	if v.Y != 0 {
+		v = NewVector2(v.X, v.Y/Abs(v.Y))
+	}
+	return v
+}
