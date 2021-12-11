@@ -53,3 +53,16 @@ func (v Vector2) Norm() Vector2 {
 	}
 	return v
 }
+
+func (v Vector2) Adjacent() []Vector2 {
+	adj := make([]Vector2, 0, 8)
+	for x := v.X - 1; x <= v.X+1; x++ {
+		for y := v.Y - 1; y <= v.Y+1; y++ {
+			if x == v.X && y == v.Y {
+				continue
+			}
+			adj = append(adj, NewVector2(x, y))
+		}
+	}
+	return adj
+}
