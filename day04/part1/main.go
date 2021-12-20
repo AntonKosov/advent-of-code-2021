@@ -7,43 +7,35 @@ import (
 )
 
 type board struct {
-	positions map[int]aoc.Vector2
-	values    map[aoc.Vector2]int
+	numbersLeft map[int]aoc.Vector2
+	columns     [5]int
+	rows        [5]int
 }
 
-func (b board) isWinner(processed map[int]bool, lastNumber int) (won bool) {
-	lp, ok := b.positions[lastNumber]
+func (b *board) isWinner(number int) (won bool) {
+	lp, ok := b.numbersLeft[number]
 	if !ok {
 		return false
 	}
 
-	v := true
-	h := true
-	for i := 0; i < 5; i++ {
-		hv := b.values[aoc.NewVector2(i, lp.Y)]
-		h = h && processed[hv]
-		vv := b.values[aoc.NewVector2(lp.X, i)]
-		v = v && processed[vv]
-		if !h && !v {
-			return false
-		}
-	}
+	b.columns[lp.X]++
+	b.rows[lp.Y]++
+	delete(b.numbersLeft, number)
 
-	return true
+	return b.columns[lp.X] == 5 || b.rows[lp.Y] == 5
 }
 
-func (b board) sumUnmarked(processed map[int]bool) int {
+func (b *board) sumUnmarked() int {
 	s := 0
-	for v := range b.positions {
-		if !processed[v] {
-			s += v
-		}
+	for v := range b.numbersLeft {
+		s += v
 	}
+
 	return s
 }
 
 type game struct {
-	boards  []board
+	boards  []*board
 	numbers []int
 }
 
@@ -59,33 +51,30 @@ func read() (data game) {
 	data.numbers = aoc.StrToInts(lines[0], ",")
 	for bs := 2; bs < len(lines); bs += 6 {
 		b := board{
-			positions: make(map[int]aoc.Vector2, 25),
-			values:    make(map[aoc.Vector2]int, 25),
+			numbersLeft: make(map[int]aoc.Vector2, 25),
 		}
 		for r := 0; r < 5; r++ {
 			row := aoc.StrToInts(lines[bs+r], " ")
 			for c, v := range row {
 				p := aoc.NewVector2(c, r)
-				b.positions[v] = p
-				b.values[p] = v
+				b.numbersLeft[v] = p
 			}
 		}
 
-		data.boards = append(data.boards, b)
+		data.boards = append(data.boards, &b)
 	}
 
 	return data
 }
 
 func process(data game) int {
-	processed := make(map[int]bool, len(data.numbers))
 	for _, n := range data.numbers {
-		processed[n] = true
 		for _, b := range data.boards {
-			if b.isWinner(processed, n) {
-				return b.sumUnmarked(processed) * n
+			if b.isWinner(n) {
+				return b.sumUnmarked() * n
 			}
 		}
 	}
+
 	panic("No winners")
 }
