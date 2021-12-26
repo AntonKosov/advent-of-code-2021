@@ -7,130 +7,75 @@ import (
 	"github.com/AntonKosov/advent-of-code-2021/aoc"
 )
 
+/*
+All algorithms for all digits are similar. There are differences in three variables only and z which
+is the only value which goes outside. This algorithm may be simplified.
+
+inp w         | w = [1..9]
+mul x 0       | x = 0
+add x z       | x = x + z
+mod x 26      | x = x % 26
+div z 1  <- a | z = z / a
+add x 14 <- b | x = x + b
+eql x w       | x = x == w ? 1 : 0
+eql x 0       | x = 1 - x // ("not" x)
+mul y 0       | y = 0
+add y 25      | y = y + 25
+mul y x       | y = y * x
+add y 1       | y = y + 1
+mul z y       | z = z * y
+mul y 0       | y = 0
+add y w       | y = y + w
+add y 0  <- c | y = y + c
+mul y x       | y = y * x
+add z y       | z = z * y
+
+So, here is a simplified version:
+
+z = <the result of previous iteration>
+w = <digit>
+x = z%26 + b
+if x == w {
+	z = z/a
+} else {
+	z = z/a*26 + w + c
+}
+*/
 func main() {
 	data := read()
 	r := process(data)
 	fmt.Printf("Answer: %v\n", r)
 }
 
-type registers [4]int
-
-const regZ = 3
 const digits = 14
 
-type command struct {
-	isInput          bool
-	targetIndex      int
-	argRegisterIndex *int
-	argValue         *int
-	operation        func(target *int, argValue int) (ok bool)
+type args struct {
+	a, b, c int
 }
 
-func (c command) exec(r *registers) bool {
-	arg := 0
-	if c.argRegisterIndex != nil {
-		arg = r[*c.argRegisterIndex]
-	} else if c.argValue != nil {
-		arg = *c.argValue
-	}
-	return c.operation(&r[c.targetIndex], arg)
-}
-
-func (c command) setInput(r *registers, value int) {
-	r[c.targetIndex] = value
-}
-
-func read() [digits][]command {
+func read() (arguments [digits]args) {
 	lines := aoc.ReadAllInput()
-	return readCommands(lines)
+	for i := 0; i < digits; i++ {
+		a := aoc.StrToInt(strings.Split(lines[i*18+4], " ")[2])
+		b := aoc.StrToInt(strings.Split(lines[i*18+5], " ")[2])
+		c := aoc.StrToInt(strings.Split(lines[i*18+15], " ")[2])
+		arguments[i] = args{a: a, b: b, c: c}
+	}
+
+	return arguments
 }
 
-func readCommands(input []string) (data [digits][]command) {
-	add := func(t *int, arg int) bool {
-		*t = *t + arg
-		return true
-	}
-	mul := func(t *int, arg int) bool {
-		*t = *t * arg
-		return true
-	}
-	div := func(t *int, arg int) bool {
-		if arg == 0 {
-			return false
-		}
-		*t = *t / arg
-		return true
-	}
-	mod := func(t *int, arg int) bool {
-		if *t < 0 || arg <= 0 {
-			return false
-		}
-		*t = *t % arg
-		return true
-	}
-	eql := func(t *int, arg int) bool {
-		if *t == arg {
-			*t = 1
-		} else {
-			*t = 0
-		}
-		return true
-	}
-
-	regIndex := func(s string) int {
-		return int(s[0] - byte('w'))
-	}
-
-	for i := range data {
-		for j := 0; j < 18; j++ {
-			p := strings.Split(input[i*18+j], " ")
-			c := command{targetIndex: regIndex(p[1])}
-			switch p[0] {
-			case "inp":
-				c.isInput = true
-			case "add":
-				c.operation = add
-			case "mul":
-				c.operation = mul
-			case "div":
-				c.operation = div
-			case "mod":
-				c.operation = mod
-			case "eql":
-				c.operation = eql
-			default:
-				panic("Unknown operation")
-			}
-
-			if len(p) > 2 {
-				arg := p[2]
-				if arg[0] >= byte('w') {
-					index := regIndex(arg)
-					c.argRegisterIndex = &index
-				} else {
-					v := aoc.StrToInt(arg)
-					c.argValue = &v
-				}
-			}
-
-			data[i] = append(data[i], c)
-		}
-	}
-
-	return data
-}
-
-func process(data [digits][]command) int64 {
+func process(data [digits]args) int64 {
 	solvedVariants := map[variant][]int64{}
-	variants := find(0, data, 0, solvedVariants)
-	min := variants[0]
+	variants := find(0, &data, 0, solvedVariants)
+	var max int64
 	for _, v := range variants {
-		if min > v {
-			min = v
+		if max < v {
+			max = v
 		}
 	}
 
-	return min
+	return max
 }
 
 type variant struct {
@@ -147,39 +92,36 @@ func init() {
 	}
 }
 
-func find(z int, allCommands [digits][]command, digitIndex int, solvedVariants map[variant][]int64) []int64 {
-	startVariant := variant{digitIndex: digitIndex, z: z}
+func find(inputZ int, args *[digits]args, digitIndex int, solvedVariants map[variant][]int64) []int64 {
+	startVariant := variant{digitIndex: digitIndex, z: inputZ}
 	if variants, ok := solvedVariants[startVariant]; ok {
 		return variants
 	}
 
 	variants := []int64{}
-	commands := allCommands[digitIndex]
-nextDigit:
-	for d := 1; d <= 9; d++ {
+	arguments := args[digitIndex]
+	for w := 1; w <= 9; w++ {
 		if digitIndex < 2 {
-			fmt.Printf("digitIndex: %v, d=%v, cache=%v\n", digitIndex, d, len(solvedVariants))
-		}
-		reg := registers{}
-		reg[regZ] = z
-		commands[0].setInput(&reg, d)
-
-		for i := 1; i < len(commands); i++ {
-			if !commands[i].exec(&reg) {
-				continue nextDigit
-			}
+			fmt.Printf("digitIndex: %v, d=%v, cache=%v\n", digitIndex, w, len(solvedVariants))
 		}
 
-		currentZ := reg[regZ]
+		z := inputZ
+		x := z%26 + arguments.b
+		if x == w {
+			z = z / arguments.a
+		} else {
+			z = z/arguments.a*26 + w + arguments.c
+		}
+
 		if digitIndex == digits-1 {
-			if currentZ == 0 {
-				variants = append(variants, int64(d))
+			if z == 0 {
+				variants = append(variants, int64(w))
 			}
 			continue
 		}
 
-		sv := find(currentZ, allCommands, digitIndex+1, solvedVariants)
-		firstDigit := pows[digitIndex] * int64(d)
+		sv := find(z, args, digitIndex+1, solvedVariants)
+		firstDigit := pows[digitIndex] * int64(w)
 		for _, v := range sv {
 			variants = append(variants, firstDigit+v)
 		}
