@@ -53,36 +53,34 @@ func read() (data map[string][]cave) {
 }
 
 func process(data map[string][]cave) int {
-	visitedSmall := make(map[string]bool)
-	c := count(data, visitedSmall, start, false)
+	visitedSmallCaves := make(map[string]bool)
+	c := count(data, visitedSmallCaves, start, false)
 
 	return c
 }
 
-func count(data map[string][]cave, visitedSmall map[string]bool, current string, visitedTwise bool) int {
+func count(data map[string][]cave, visitedSmallCaves map[string]bool, current string, visitedTwise bool) int {
 	sum := 0
 
 	for _, c := range data[current] {
 		visitSecondTime := false
-		if visitedSmall[c.id] {
+		if visitedSmallCaves[c.id] {
 			if visitedTwise {
 				continue
 			}
 			visitSecondTime = true
 		}
 		if c.id == end {
-			if len(visitedSmall) > 0 {
-				sum++
-			}
+			sum++
 			continue
 		}
 		if c.isSmall {
-			visitedSmall[c.id] = true
+			visitedSmallCaves[c.id] = true
 		}
-		sum += count(data, visitedSmall, c.id, visitSecondTime || visitedTwise)
+		sum += count(data, visitedSmallCaves, c.id, visitSecondTime || visitedTwise)
 
 		if !visitSecondTime {
-			delete(visitedSmall, c.id)
+			delete(visitedSmallCaves, c.id)
 		}
 	}
 
